@@ -82,7 +82,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify Slack - Release
-        if: secrets.SLACK_WEBHOOK != ''
+        if: env.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
         with:
           status: 'success'
@@ -96,5 +96,6 @@ jobs:
             ```
             docker pull ${{ secrets.DOCKER_USERNAME }}/ojat:${{ env.VERSION }}
             ```
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true

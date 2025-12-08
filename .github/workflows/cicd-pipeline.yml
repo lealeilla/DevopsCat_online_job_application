@@ -222,7 +222,7 @@ jobs:
           fi
 
       - name: Notify Slack
-        if: env.SLACK_WEBHOOK != ''
+        if: env.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ steps.status.outputs.status }}
@@ -239,10 +239,9 @@ jobs:
             *Release Status:* ${{ needs.release.result }}
             
             View details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
           fields: repo,message,commit,author,action,eventName,ref,workflow
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Summary Report
         run: |
