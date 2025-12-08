@@ -144,20 +144,12 @@ The pipeline sends Slack notifications for:
 
 **Setup:** Add `SLACK_WEBHOOK` secret to GitHub
 
-### Email Notifications (Optional)
-
-For critical failures, emails can be sent if configured with:
-- `EMAIL_SERVER`
-- `EMAIL_PORT`
-- `EMAIL_USERNAME`
-- `EMAIL_PASSWORD`
-- `NOTIFICATION_EMAIL`
-
 ### GitHub Check Runs
 
 All workflow results show as GitHub Checks:
 - Status badges on PRs
 - Merge blocking on failures
+- Detailed logs and artifacts
 - Detailed logs and artifacts
 
 ---

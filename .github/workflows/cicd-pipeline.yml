@@ -244,32 +244,6 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-      - name: Notify via Email (if configured)
-        if: failure() && env.NOTIFICATION_EMAIL != ''
-        run: |
-          if [ -n "${{ secrets.EMAIL_SERVER }}" ]; then
-            cat > /tmp/email_body.txt << 'EOF'
-            Pipeline failed for repository: ${{ github.repository }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
-            Author: ${{ github.actor }}
-            
-            View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            EOF
-            
-            # Using curl to send email via SMTP
-            curl --url "${{ secrets.EMAIL_SERVER }}:${{ secrets.EMAIL_PORT }}" \
-              --ssl-reqd \
-              --mail-from "${{ secrets.EMAIL_FROM }}" \
-              --mail-rcpt "${{ secrets.NOTIFICATION_EMAIL }}" \
-              --user "${{ secrets.EMAIL_USERNAME }}:${{ secrets.EMAIL_PASSWORD }}" \
-              -T /tmp/email_body.txt \
-              -H "Subject: CI/CD Pipeline Failed - ${{ github.repository }}" || true
-          fi
-        env:
-          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
-        continue-on-error: true
-
       - name: Summary Report
         run: |
           echo "## CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
