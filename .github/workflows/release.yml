@@ -30,8 +30,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+          git config --global user.name "leaishimwe"
+          git config --global user.email "leaishimwe55@gmail.com"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,6 +53,19 @@ jobs:
         run: |
           git tag -a v${{ env.VERSION }} -m "Release v${{ env.VERSION }}"
           git push origin v${{ env.VERSION }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/ojat:latest,${{ secrets.DOCKER_USERNAME }}/ojat:${{ env.VERSION }}
 
       - name: Build changelog
         id: changelog
@@ -93,7 +106,7 @@ jobs:
             *Release:* https://github.com/${{ github.repository }}/releases/tag/v${{ env.VERSION }}
             
             📦 **Docker Image:**
-            ```
+            ```bash
             docker pull ${{ secrets.DOCKER_USERNAME }}/ojat:${{ env.VERSION }}
             ```
         env:
