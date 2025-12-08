@@ -54,7 +54,7 @@ jobs:
         run: npm test
         env:
           SKIP_DB_TESTS: 'false'
-          JWT_SECRET: 'test-secret-key'   # 🔥 REQUIRED FIX
+          JWT_SECRET: 'test-secret-key'   
           NODE_ENV: test
 
       - name: Build Docker image (main branch only)
