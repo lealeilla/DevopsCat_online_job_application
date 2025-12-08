@@ -70,7 +70,7 @@ async function initializeDatabase() {
         id INT PRIMARY KEY AUTO_INCREMENT,
         job_id INT NOT NULL,
         applicant_id INT NOT NULL,
-        status ENUM('pending', 'received', 'interview', 'selected', 'rejected') DEFAULT 'pending',
+        status ENUM('pending', 'received', 'reviewed', 'interview', 'selected', 'rejected') DEFAULT 'pending',
         resume_url VARCHAR(255),
         cover_letter TEXT,
         approver_id INT,

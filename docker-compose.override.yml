@@ -14,6 +14,7 @@ services:
   app:
     build:
       context: .
+      target: dev-base
     environment:
       - NODE_ENV=development
       - DB_HOST=mysql

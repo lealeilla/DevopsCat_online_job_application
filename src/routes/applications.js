@@ -12,7 +12,7 @@ const applicationSchema = Joi.object({
 });
 
 const updateStatusSchema = Joi.object({
-  status: Joi.string().valid('received', 'interview', 'selected', 'rejected').required(),
+  status: Joi.string().valid('received', 'reviewed', 'interview', 'selected', 'rejected').required(),
   rejection_reason: Joi.string(),
   approver_id: Joi.number()
 });
