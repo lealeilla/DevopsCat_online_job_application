@@ -65,7 +65,7 @@ jobs:
           push: false
           tags: ojat:ci
 
-      - name: Notify Slack
+      - name: Notify Slack (All Conditions)
         if: always()
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -76,6 +76,29 @@ jobs:
             AUTHOR="${{ github.actor }}"
             WORKFLOW="${{ github.workflow }}"
             COMMIT="${{ github.sha }}"
+            RUN_ID="${{ github.run_id }}"
+            REPO="${{ github.repository }}"
+            SERVER_URL="${{ github.server_url }}"
+            
+            # Determine emoji based on status
+            case "$STATUS" in
+              success)
+                EMOJI=":white_check_mark:"
+                COLOR="good"
+                ;;
+              failure)
+                EMOJI=":x:"
+                COLOR="danger"
+                ;;
+              cancelled)
+                EMOJI=":warning:"
+                COLOR="warning"
+                ;;
+              *)
+                EMOJI=":grey_question:"
+                COLOR="#808080"
+                ;;
+            esac
             
             # Extract Jest test summary
             TEST_RESULTS=$(cat coverage/lcov-report/index.html 2>/dev/null | grep -oP '(?<=<span class="strong">)[0-9]+(?=</span>)' | head -n 1)
@@ -91,32 +114,11 @@ jobs:
               COVERAGE="Unknown"
             fi
 
-            PAYLOAD="{\"text\": \":rocket: *CI Pipeline Notification*\\n*Workflow:* $WORKFLOW\\n*Branch:* $BRANCH\\n*Author:* $AUTHOR\\n*Commit:* $COMMIT\\n*Status:* *$STATUS*\\n\\n*Tests:* $TEST_RESULTS executed\\n*Coverage:* $COVERAGE%\"}"
+            PAYLOAD="{\"attachments\":[{\"color\":\"$COLOR\",\"title\":\"$EMOJI CI Pipeline - $STATUS\",\"fields\":[{\"title\":\"Workflow\",\"value\":\"$WORKFLOW\",\"short\":true},{\"title\":\"Branch\",\"value\":\"$BRANCH\",\"short\":true},{\"title\":\"Author\",\"value\":\"$AUTHOR\",\"short\":true},{\"title\":\"Commit\",\"value\":\"$COMMIT\",\"short\":true},{\"title\":\"Tests\",\"value\":\"$TEST_RESULTS executed\",\"short\":true},{\"title\":\"Coverage\",\"value\":\"$COVERAGE%\",\"short\":true}],\"actions\":[{\"type\":\"button\",\"text\":\"View Logs\",\"url\":\"$SERVER_URL/$REPO/actions/runs/$RUN_ID\"}]}]}"
 
             curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK" || true
 
           else
             echo "No Slack webhook configured."
           fi
-
-      - name: Notify Slack on Failure
-        if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          channel: '#devops-alerts'
-          message: |
-            CI/CD Pipeline Failed!
-            
-             *Pipeline Results:*
-            - Tests: 
-            - Build: 
-            
-            *Commit:* ${{ github.sha }}
-            *Branch:* ${{ github.ref }}
-            *Author:* ${{ github.actor }}
-            
-            Please check the logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           
