@@ -91,12 +91,7 @@ jobs:
               COVERAGE="Unknown"
             fi
 
-            PAYLOAD=$(cat <<EOF
-{
-  "text": ":rocket: *CI Pipeline Notification*\n*Workflow:* $WORKFLOW\n*Branch:* $BRANCH\n*Author:* $AUTHOR\n*Commit:* $COMMIT\n*Status:* *$STATUS*\n\n*Tests:* $TEST_RESULTS executed\n*Coverage:* $COVERAGE%"
-}
-EOF
-)
+            PAYLOAD="{\"text\": \":rocket: *CI Pipeline Notification*\\n*Workflow:* $WORKFLOW\\n*Branch:* $BRANCH\\n*Author:* $AUTHOR\\n*Commit:* $COMMIT\\n*Status:* *$STATUS*\\n\\n*Tests:* $TEST_RESULTS executed\\n*Coverage:* $COVERAGE%\"}"
 
             curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK" || true
 
