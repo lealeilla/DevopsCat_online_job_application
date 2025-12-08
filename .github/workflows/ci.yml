@@ -49,6 +49,10 @@ jobs:
 
       - name: Run tests
         run: npm test
+        env:
+          # Run full integration tests including multi-role API
+          # GitHub Actions MySQL service is accessible on 127.0.0.1:3306
+          SKIP_DB_TESTS: 'false'
 
       - name: Build Docker image (main only)
         if: github.ref == 'refs/heads/main'

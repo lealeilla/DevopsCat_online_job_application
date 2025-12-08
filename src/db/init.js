@@ -11,7 +11,7 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-async function waitForMySQL(retries = 15, delayMs = 2000) {
+async function waitForMySQL(retries = 30, delayMs = 1000) {
   let attempt = 0;
   while (attempt < retries) {
     try {
