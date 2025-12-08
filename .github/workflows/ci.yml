@@ -106,11 +106,11 @@ jobs:
           status: failure
           channel: '#devops-alerts'
           message: |
-            ❌ CI/CD Pipeline Failed!
+            CI/CD Pipeline Failed!
             
-            📊 *Pipeline Results:*
-            - Tests: ❌
-            - Build: ❌
+             *Pipeline Results:*
+            - Tests: 
+            - Build: 
             
             *Commit:* ${{ github.sha }}
             *Branch:* ${{ github.ref }}
