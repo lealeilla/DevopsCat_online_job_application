@@ -246,25 +246,29 @@ jobs:
 
       - name: Notify via Email (if configured)
         if: failure() && env.NOTIFICATION_EMAIL != ''
-        uses: davisong00/email-action@v1.1.4
-        with:
-          server_address: ${{ secrets.EMAIL_SERVER }}
-          server_port: ${{ secrets.EMAIL_PORT }}
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "CI/CD Pipeline Failed - ${{ github.repository }}"
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: "GitHub Actions <${{ secrets.EMAIL_FROM }}>"
-          body: |
+        run: |
+          if [ -n "${{ secrets.EMAIL_SERVER }}" ]; then
+            cat > /tmp/email_body.txt << 'EOF'
             Pipeline failed for repository: ${{ github.repository }}
             Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
             
             View logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        continue-on-error: true
+            EOF
+            
+            # Using curl to send email via SMTP
+            curl --url "${{ secrets.EMAIL_SERVER }}:${{ secrets.EMAIL_PORT }}" \
+              --ssl-reqd \
+              --mail-from "${{ secrets.EMAIL_FROM }}" \
+              --mail-rcpt "${{ secrets.NOTIFICATION_EMAIL }}" \
+              --user "${{ secrets.EMAIL_USERNAME }}:${{ secrets.EMAIL_PASSWORD }}" \
+              -T /tmp/email_body.txt \
+              -H "Subject: CI/CD Pipeline Failed - ${{ github.repository }}" || true
+          fi
         env:
           NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+        continue-on-error: true
 
       - name: Summary Report
         run: |
