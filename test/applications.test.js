@@ -1,146 +1,280 @@
 const request = require('supertest');
 const app = require('../src/app');
-const store = require('../src/store/applications');
 
-describe('Applications API', () => {
-  // Clear store before each test
-  beforeEach(() => {
-    store.getApplications().length = 0; // Clear array
-  });
+describe('Multi-Role Job Application Tracker API', () => {
+  let publisherToken, applicantToken, approverToken;
+  let publisherId, applicantId, jobId;
 
-  describe('GET /api/applications', () => {
-    test('returns empty array initially', async () => {
-      const res = await request(app).get('/api/applications');
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toEqual([]);
-    });
-
-    test('returns all applications', async () => {
-      await request(app).post('/api/applications').send({
-        company: 'Google',
-        position: 'Software Engineer',
-        appliedDate: '2025-12-08',
-        status: 'applied'
+  beforeAll(async () => {
+    // Register publisher
+    const pubRes = await request(app)
+      .post('/api/auth/register')
+      .send({
+        email: 'publisher@example.com',
+        password: 'password123',
+        name: 'Job Publisher',
+        role: 'publisher'
       });
+    publisherToken = pubRes.body.token;
+    publisherId = pubRes.body.user.id;
 
-      const res = await request(app).get('/api/applications');
-      expect(res.statusCode).toBe(200);
-      expect(res.body.length).toBe(1);
-      expect(res.body[0].company).toBe('Google');
-    });
+    // Register applicant
+    const appRes = await request(app)
+      .post('/api/auth/register')
+      .send({
+        email: 'applicant@example.com',
+        password: 'password123',
+        name: 'Job Applicant',
+        role: 'applicant'
+      });
+    applicantToken = appRes.body.token;
+    applicantId = appRes.body.user.id;
+
+    // Register approver
+    const apvRes = await request(app)
+      .post('/api/auth/register')
+      .send({
+        email: 'approver@example.com',
+        password: 'password123',
+        name: 'Job Approver',
+        role: 'approver'
+      });
+    approverToken = apvRes.body.token;
   });
 
-  describe('POST /api/applications', () => {
-    test('creates a new application with required fields', async () => {
+  describe('Auth Routes', () => {
+    test('POST /api/auth/register creates a new user with role', async () => {
       const res = await request(app)
-        .post('/api/applications')
+        .post('/api/auth/register')
         .send({
-          company: 'Google',
-          position: 'Software Engineer',
-          appliedDate: '2025-12-08',
-          status: 'applied'
+          email: 'newuser@example.com',
+          password: 'password123',
+          name: 'New User',
+          role: 'applicant'
         });
 
       expect(res.statusCode).toBe(201);
-      expect(res.body).toHaveProperty('id');
-      expect(res.body.company).toBe('Google');
-      expect(res.body.position).toBe('Software Engineer');
-      expect(res.body.status).toBe('applied');
+      expect(res.body).toHaveProperty('token');
+      expect(res.body.user.role).toBe('applicant');
     });
 
-    test('creates application with optional fields', async () => {
+    test('POST /api/auth/login returns token for valid credentials', async () => {
       const res = await request(app)
-        .post('/api/applications')
+        .post('/api/auth/login')
         .send({
-          company: 'Microsoft',
-          position: 'Cloud Architect',
-          appliedDate: '2025-12-08',
-          status: 'interviewing',
-          link: 'https://example.com/job',
-          notes: 'Great opportunity'
+          email: 'publisher@example.com',
+          password: 'password123'
         });
 
-      expect(res.statusCode).toBe(201);
-      expect(res.body.link).toBe('https://example.com/job');
-      expect(res.body.notes).toBe('Great opportunity');
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('token');
+      expect(res.body.user.role).toBe('publisher');
     });
 
-    test('rejects missing required fields', async () => {
+    test('POST /api/auth/login rejects invalid password', async () => {
       const res = await request(app)
-        .post('/api/applications')
+        .post('/api/auth/login')
         .send({
-          company: 'Google'
+          email: 'publisher@example.com',
+          password: 'wrongpassword'
         });
 
       expect(res.statusCode).toBe(400);
       expect(res.body).toHaveProperty('error');
     });
+  });
 
-    test('rejects invalid status', async () => {
+  describe('Jobs Routes (Publisher)', () => {
+    test('POST /api/jobs creates a new job (publisher only)', async () => {
+      const res = await request(app)
+        .post('/api/jobs')
+        .set('Authorization', `Bearer ${publisherToken}`)
+        .send({
+          title: 'Senior Developer',
+          description: 'We are hiring a senior developer',
+          location: 'San Francisco',
+          salary_range: '$100k-$150k'
+        });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body.job.title).toBe('Senior Developer');
+      jobId = res.body.job.id;
+    });
+
+    test('POST /api/jobs rejects non-publisher', async () => {
+      const res = await request(app)
+        .post('/api/jobs')
+        .set('Authorization', `Bearer ${applicantToken}`)
+        .send({
+          title: 'Test Job',
+          description: 'Test',
+          location: 'NYC'
+        });
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    test('GET /api/jobs returns all open jobs', async () => {
+      const res = await request(app).get('/api/jobs');
+
+      expect(res.statusCode).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body[0]).toHaveProperty('title');
+      expect(res.body[0]).toHaveProperty('publisher_name');
+    });
+
+    test('GET /api/jobs/:id returns specific job', async () => {
+      const res = await request(app).get(`/api/jobs/${jobId}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.title).toBe('Senior Developer');
+      expect(res.body.id).toBe(jobId);
+    });
+  });
+
+  describe('Applications Routes (Applicant)', () => {
+    test('POST /api/applications allows applicant to apply for job', async () => {
       const res = await request(app)
         .post('/api/applications')
+        .set('Authorization', `Bearer ${applicantToken}`)
         .send({
-          company: 'Google',
-          position: 'Software Engineer',
-          appliedDate: '2025-12-08',
-          status: 'invalid_status'
+          job_id: jobId,
+          cover_letter: 'I am very interested in this position'
+        });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body.application).toHaveProperty('id');
+      expect(res.body.application.status).toBe('pending');
+    });
+
+    test('POST /api/applications rejects duplicate applications', async () => {
+      const res = await request(app)
+        .post('/api/applications')
+        .set('Authorization', `Bearer ${applicantToken}`)
+        .send({
+          job_id: jobId,
+          cover_letter: 'Another application'
         });
 
       expect(res.statusCode).toBe(400);
-      expect(res.body.error).toContain('Invalid status');
+      expect(res.body.error).toContain('already applied');
     });
-  });
 
-  describe('GET /api/applications/:id', () => {
-    test('returns application by ID', async () => {
-      const postRes = await request(app)
-        .post('/api/applications')
-        .send({
-          company: 'Amazon',
-          position: 'DevOps Engineer',
-          appliedDate: '2025-12-08',
-          status: 'applied'
-        });
-
-      const id = postRes.body.id;
-      const res = await request(app).get(`/api/applications/${id}`);
+    test('GET /api/applications/my-applications returns applicant applications', async () => {
+      const res = await request(app)
+        .get('/api/applications/my-applications')
+        .set('Authorization', `Bearer ${applicantToken}`);
 
       expect(res.statusCode).toBe(200);
-      expect(res.body.id).toBe(id);
-      expect(res.body.company).toBe('Amazon');
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body[0]).toHaveProperty('title');
+      expect(res.body[0]).toHaveProperty('status');
     });
 
-    test('returns 404 for non-existent ID', async () => {
-      const res = await request(app).get('/api/applications/999');
-      expect(res.statusCode).toBe(404);
-      expect(res.body).toHaveProperty('error');
+    test('GET /api/applications/my-applications requires auth', async () => {
+      const res = await request(app).get('/api/applications/my-applications');
+
+      expect(res.statusCode).toBe(401);
     });
   });
 
-  describe('DELETE /api/applications/:id', () => {
-    test('deletes application by ID', async () => {
-      const postRes = await request(app)
-        .post('/api/applications')
-        .send({
-          company: 'Meta',
-          position: 'Frontend Engineer',
-          appliedDate: '2025-12-08',
-          status: 'applied'
-        });
+  describe('Applications Routes (Publisher view)', () => {
+    test('GET /api/applications/job/:id returns applications for publisher job', async () => {
+      const res = await request(app)
+        .get(`/api/applications/job/${jobId}`)
+        .set('Authorization', `Bearer ${publisherToken}`);
 
-      const id = postRes.body.id;
-      const deleteRes = await request(app).delete(`/api/applications/${id}`);
-
-      expect(deleteRes.statusCode).toBe(200);
-      expect(deleteRes.body).toHaveProperty('message');
-
-      const getRes = await request(app).get(`/api/applications/${id}`);
-      expect(getRes.statusCode).toBe(404);
+      expect(res.statusCode).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body[0]).toHaveProperty('applicant_name');
+      expect(res.body[0]).toHaveProperty('status');
     });
 
-    test('returns 404 when deleting non-existent application', async () => {
-      const res = await request(app).delete('/api/applications/999');
-      expect(res.statusCode).toBe(404);
+    test('GET /api/applications/job/:id prevents non-publisher access', async () => {
+      const res = await request(app)
+        .get(`/api/applications/job/${jobId}`)
+        .set('Authorization', `Bearer ${applicantToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+  });
+
+  describe('Applications Routes (Approver)', () => {
+    let applicationId;
+
+    beforeAll(async () => {
+      const appRes = await request(app)
+        .get('/api/applications/my-applications')
+        .set('Authorization', `Bearer ${applicantToken}`);
+      applicationId = appRes.body[0].id;
+    });
+
+    test('PUT /api/applications/:id/status updates application status (approver only)', async () => {
+      const res = await request(app)
+        .put(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${approverToken}`)
+        .send({
+          status: 'received'
+        });
+
+      expect(res.statusCode).toBe(200);
+    });
+
+    test('PUT /api/applications/:id/status with rejection reason', async () => {
+      // Create another applicant to test rejection
+      const newAppRes = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'applicant2@example.com',
+          password: 'password123',
+          name: 'Second Applicant',
+          role: 'applicant'
+        });
+      const newApplicantToken = newAppRes.body.token;
+
+      // Apply for job
+      const applyRes = await request(app)
+        .post('/api/applications')
+        .set('Authorization', `Bearer ${newApplicantToken}`)
+        .send({
+          job_id: jobId,
+          cover_letter: 'I want this job'
+        });
+      const appId = applyRes.body.application.id;
+
+      // Reject with reason
+      const rejectRes = await request(app)
+        .put(`/api/applications/${appId}/status`)
+        .set('Authorization', `Bearer ${approverToken}`)
+        .send({
+          status: 'rejected',
+          rejection_reason: 'Not enough experience'
+        });
+
+      expect(rejectRes.statusCode).toBe(200);
+    });
+
+    test('PUT /api/applications/:id/status rejects non-approver', async () => {
+      const res = await request(app)
+        .put(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${applicantToken}`)
+        .send({
+          status: 'selected'
+        });
+
+      expect(res.statusCode).toBe(403);
+    });
+  });
+
+  describe('Health Check', () => {
+    test('GET /health returns ok status', async () => {
+      const res = await request(app).get('/health');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.status).toBe('ok');
     });
   });
 });
