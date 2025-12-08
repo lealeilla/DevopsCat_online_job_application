@@ -83,9 +83,9 @@ jobs:
       - name: Notify Slack (All Conditions)
         if: always()
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL}}
         run: |
-          if [ -n "$SLACK_WEBHOOK" ]; then
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
             STATUS="${{ job.status }}"
             BRANCH="${{ github.ref_name }}"
             AUTHOR="${{ github.actor }}"
@@ -131,7 +131,7 @@ jobs:
 
             PAYLOAD="{\"attachments\":[{\"color\":\"$COLOR\",\"title\":\"$EMOJI CI Pipeline - $STATUS\",\"fields\":[{\"title\":\"Workflow\",\"value\":\"$WORKFLOW\",\"short\":true},{\"title\":\"Branch\",\"value\":\"$BRANCH\",\"short\":true},{\"title\":\"Author\",\"value\":\"$AUTHOR\",\"short\":true},{\"title\":\"Commit\",\"value\":\"$COMMIT\",\"short\":true},{\"title\":\"Tests\",\"value\":\"$TEST_RESULTS executed\",\"short\":true},{\"title\":\"Coverage\",\"value\":\"$COVERAGE%\",\"short\":true}],\"actions\":[{\"type\":\"button\",\"text\":\"View Logs\",\"url\":\"$SERVER_URL/$REPO/actions/runs/$RUN_ID\"}]}]}"
 
-            curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK" || true
+            curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" || true
 
           else
             echo "No Slack webhook configured."
