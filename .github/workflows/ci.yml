@@ -72,8 +72,35 @@ jobs:
         run: |
           if [ -n "$SLACK_WEBHOOK" ]; then
             STATUS="${{ job.status }}"
-            PAYLOAD="{\"text\": \"CI job ${{ github.workflow }} for ${{ github.ref }}: $STATUS\"}"
-            curl -s -X POST -H 'Content-type: application/json' --data "$PAYLOAD" $SLACK_WEBHOOK || true
+            BRANCH="${{ github.ref_name }}"
+            AUTHOR="${{ github.actor }}"
+            WORKFLOW="${{ github.workflow }}"
+            COMMIT="${{ github.sha }}"
+            
+            # Extract Jest test summary
+            TEST_RESULTS=$(cat coverage/lcov-report/index.html 2>/dev/null | grep -oP '(?<=<span class="strong">)[0-9]+(?=</span>)' | head -n 1)
+            
+            # Fallback if HTML not found
+            if [ -z "$TEST_RESULTS" ]; then
+              TEST_RESULTS="Unknown"
+            fi
+
+            # Extract coverage %
+            COVERAGE=$(grep -oP 'All files[ ]*\|\s*\K[\d.]+' coverage/lcov-report/index.html 2>/dev/null | head -n 1)
+            if [ -z "$COVERAGE" ]; then
+              COVERAGE="Unknown"
+            fi
+
+            PAYLOAD=$(cat <<EOF
+{
+  "text": ":rocket: *CI Pipeline Notification*\n*Workflow:* $WORKFLOW\n*Branch:* $BRANCH\n*Author:* $AUTHOR\n*Commit:* $COMMIT\n*Status:* *$STATUS*\n\n*Tests:* $TEST_RESULTS executed\n*Coverage:* $COVERAGE%"
+}
+EOF
+)
+
+            curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK" || true
+
           else
-            echo "No Slack webhook configured"
+            echo "No Slack webhook configured."
           fi
+          
