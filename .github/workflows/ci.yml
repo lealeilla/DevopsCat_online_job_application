@@ -9,6 +9,7 @@ on:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
+
     services:
       mysql:
         image: mysql:8.0
@@ -30,31 +31,33 @@ jobs:
       DB_NAME: job_tracker
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js 18
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Wait for MySQL
+      - name: Wait for MySQL to be ready
         run: |
           for i in {1..30}; do
-            mysqladmin ping -h 127.0.0.1 -uroot -ppassword && break || sleep 2
+            mysqladmin ping -h 127.0.0.1 -uroot -ppassword && break
+            echo "Waiting for MySQL..."
+            sleep 2
           done
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Run tests (Full Integration)
         run: npm test
         env:
-          # Run full integration tests including multi-role API
-          # GitHub Actions MySQL service is accessible on 127.0.0.1:3306
           SKIP_DB_TESTS: 'false'
+          JWT_SECRET: 'test-secret-key'   # 🔥 REQUIRED FIX
+          NODE_ENV: test
 
-      - name: Build Docker image (main only)
+      - name: Build Docker image (main branch only)
         if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v4
         with:
