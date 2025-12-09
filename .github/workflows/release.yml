@@ -95,27 +95,6 @@ jobs:
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        if: false
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          body: |
-            ## Changes
-            ${{ steps.changelog.outputs.CHANGELOG }}
-            
-            ## Installation
-            ```bash
-            docker pull ${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:${{ env.VERSION }}
-            ```
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-
       - name: Notify Slack - Release
         if: env.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
