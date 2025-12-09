@@ -65,7 +65,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/ojat:latest,${{ secrets.DOCKER_USERNAME }}/ojat:${{ env.VERSION }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:latest,${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:${{ env.VERSION }}
 
       - name: Build changelog
         id: changelog
@@ -86,7 +86,7 @@ jobs:
             
             ## Installation
             ```bash
-            docker pull ${{ secrets.DOCKER_USERNAME }}/ojat:${{ env.VERSION }}
+            docker pull ${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:${{ env.VERSION }}
             ```
           draft: false
           prerelease: false
@@ -107,7 +107,7 @@ jobs:
             
             📦 **Docker Image:**
             ```bash
-            docker pull ${{ secrets.DOCKER_USERNAME }}/ojat:${{ env.VERSION }}
+            docker pull ${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:${{ env.VERSION }}
             ```
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
