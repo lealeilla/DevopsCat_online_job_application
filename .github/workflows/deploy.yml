@@ -14,6 +14,10 @@ on:
         description: 'Docker image tag to deploy'
         required: true
         default: 'latest'
+  workflow_run:
+    workflows: ["Release & Versioning"]
+    types:
+      - completed
   push:
     tags:
       - 'v*'
@@ -25,6 +29,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'push'
     environment: 
       name: ${{ github.event.inputs.environment || 'production' }}
     
@@ -37,11 +42,14 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG=${{ github.event.inputs.image_tag }}
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # Extract tag from the triggering workflow
+            TAG=$(echo "${{ github.event.workflow_run.head_branch }}" | sed 's/refs\/tags\///')
           else
             TAG=${GITHUB_REF#refs/tags/}
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Deploying image tag: $TAG"
+          echo "🚀 Deploying image tag: $TAG"
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
