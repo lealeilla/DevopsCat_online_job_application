@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ojat-production
+  labels:
+    name: ojat-production
+    environment: production
