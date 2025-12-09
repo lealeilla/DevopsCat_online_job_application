@@ -45,18 +45,31 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Update version in package.json
+      - name: Determine version
+        id: get_version
         run: |
-          npm version ${{ github.event.inputs.version }} --no-git-tag-version
-          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION=${{ github.event.inputs.version }}
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update version in package.json
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          npm version ${{ env.VERSION }} --no-git-tag-version
 
       - name: Commit version bump
+        if: github.event_name == 'workflow_dispatch'
         run: |
           git add package.json package-lock.json
-          git commit -m "chore: bump version to ${{ env.VERSION }}"
+          git commit -m "chore: bump version to ${{ env.VERSION }}" || echo "No changes to commit"
           git push origin main
 
       - name: Create Git tag
+        if: github.event_name == 'workflow_dispatch'
         run: |
           git tag -a v${{ env.VERSION }} -m "Release v${{ env.VERSION }}"
           git push origin v${{ env.VERSION }}
