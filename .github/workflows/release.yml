@@ -16,6 +16,13 @@ on:
           - major
           - minor
           - patch
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
   release:
