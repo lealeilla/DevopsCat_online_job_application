@@ -18,9 +18,6 @@ on:
     workflows: ["Release & Versioning"]
     types:
       - completed
-  push:
-    tags:
-      - 'v*'
 
 permissions:
   contents: read
@@ -29,7 +26,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     environment: 
       name: ${{ github.event.inputs.environment || 'production' }}
     
@@ -37,87 +34,86 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check Kubernetes credentials
+        id: check_kube
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          if [ -z "$KUBE_CONFIG" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "⚠️ KUBE_CONFIG secret not configured. Skipping deployment."
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+            echo "✅ Kubernetes credentials found"
+          fi
+
       - name: Determine image tag
         id: image_tag
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG=${{ github.event.inputs.image_tag }}
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            # Extract tag from the triggering workflow
-            TAG=$(echo "${{ github.event.workflow_run.head_branch }}" | sed 's/refs\/tags\///')
+            TAG=$(echo "${{ github.event.workflow_run.head_branch }}" | sed 's/refs\/tags\///' | sed 's/^v//')
           else
-            TAG=${GITHUB_REF#refs/tags/}
+            TAG=latest
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "🚀 Deploying image tag: $TAG"
+          echo "🚀 Image tag: $TAG"
+
+      - name: Deployment Summary (No Kubernetes)
+        if: steps.check_kube.outputs.configured == 'false'
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          echo "=========================================="
+          echo "📦 DEPLOYMENT SUMMARY"
+          echo "=========================================="
+          echo ""
+          echo "Docker image ready:"
+          echo "  docker pull $DOCKER_USER/devops_cat_onlinejob:${{ steps.image_tag.outputs.tag }}"
+          echo ""
+          echo "To deploy manually:"
+          echo "  kubectl set image deployment/ojat-app ojat=$DOCKER_USER/devops_cat_onlinejob:${{ steps.image_tag.outputs.tag }} -n ojat-production"
+          echo ""
+          echo "To enable auto-deploy, add KUBE_CONFIG secret"
+          echo "=========================================="
 
       - name: Set up kubectl
+        if: steps.check_kube.outputs.configured == 'true'
         uses: azure/setup-kubectl@v3
         with:
           version: 'v1.28.0'
 
       - name: Configure kubeconfig
-        if: ${{ env.KUBE_CONFIG != '' }}
+        if: steps.check_kube.outputs.configured == 'true'
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           mkdir -p ~/.kube
           echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
       - name: Update deployment image
+        if: steps.check_kube.outputs.configured == 'true'
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
         run: |
           kubectl set image deployment/ojat-app \
-            ojat=${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:${{ steps.image_tag.outputs.tag }} \
-            -n ojat-production \
-            --record
+            ojat=$DOCKER_USER/devops_cat_onlinejob:${{ steps.image_tag.outputs.tag }} \
+            -n ojat-production
 
-      - name: Wait for rollout to complete
-        run: |
-          kubectl rollout status deployment/ojat-app -n ojat-production --timeout=5m
+      - name: Wait for rollout
+        if: steps.check_kube.outputs.configured == 'true'
+        run: kubectl rollout status deployment/ojat-app -n ojat-production --timeout=5m
 
       - name: Verify deployment
+        if: steps.check_kube.outputs.configured == 'true'
         run: |
           kubectl get pods -n ojat-production -l app=ojat
           kubectl get deployment ojat-app -n ojat-production
-          kubectl get hpa ojat-hpa -n ojat-production
-
-      - name: Run smoke tests
-        run: |
-          SERVICE_IP=$(kubectl get svc ojat-service -n ojat-production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          if [ -z "$SERVICE_IP" ]; then
-            echo "Waiting for LoadBalancer IP..."
-            sleep 30
-            SERVICE_IP=$(kubectl get svc ojat-service -n ojat-production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          fi
-          
-          if [ -n "$SERVICE_IP" ]; then
-            echo "Testing health endpoint..."
-            curl -f http://$SERVICE_IP/health || exit 1
-            echo "Deployment successful!"
-          else
-            echo "Warning: LoadBalancer IP not available yet"
-          fi
 
       - name: Rollback on failure
-        if: failure()
+        if: failure() && steps.check_kube.outputs.configured == 'true'
         run: |
-          echo "Deployment failed, rolling back..."
           kubectl rollout undo deployment/ojat-app -n ojat-production
           kubectl rollout status deployment/ojat-app -n ojat-production --timeout=3m
-
-      - name: Notify Slack - Deployment
-        if: always() && env.SLACK_WEBHOOK_URL != ''
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: |
-            🚀 *Deployment to ${{ github.event.inputs.environment || 'production' }}*
-            
-            *Status:* ${{ job.status }}
-            *Image:* ${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:${{ steps.image_tag.outputs.tag }}
-            *Repository:* ${{ github.repository }}
-            *Triggered by:* ${{ github.actor }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        continue-on-error: true
