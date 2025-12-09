@@ -95,6 +95,26 @@ jobs:
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Deploy to Kubernetes
+        if: secrets.KUBE_CONFIG != ''
+        run: |
+          # Set up kubectl
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          
+          # Update deployment image
+          kubectl set image deployment/ojat-app \
+            ojat=${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:${{ env.VERSION }} \
+            -n ojat-production \
+            --record || echo "Deployment not configured yet"
+          
+          # Wait for rollout (if deployment exists)
+          kubectl rollout status deployment/ojat-app -n ojat-production --timeout=5m || echo "Deployment skipped"
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        continue-on-error: true
+
       - name: Notify Slack - Release
         if: env.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3

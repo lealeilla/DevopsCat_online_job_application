@@ -38,7 +38,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG=${{ github.event.inputs.image_tag }}
           else
-            TAG=${GITHUB_REF#refs/tags/v}
+            TAG=${GITHUB_REF#refs/tags/}
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "Deploying image tag: $TAG"
@@ -49,10 +49,13 @@ jobs:
           version: 'v1.28.0'
 
       - name: Configure kubeconfig
+        if: secrets.KUBE_CONFIG != ''
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
       - name: Update deployment image
         run: |
