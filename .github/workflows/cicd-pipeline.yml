@@ -196,16 +196,6 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/devops_cat_onlinejob:${{ steps.version.outputs.version }}
           cache-from: type=gha
 
-      - name: Create GitHub Release (for tags)
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v1
-        with:
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   # Phase 4: Notifications (Feedback Mechanism)
   notify:
     runs-on: ubuntu-latest
