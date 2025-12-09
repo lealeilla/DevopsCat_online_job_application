@@ -380,8 +380,8 @@
   </div>
 
   <script>
-    // Auto-detect API URL based on current location
-    const API = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/api`;
+    // Use relative path to work in all environments
+    const API = '/api';
     let currentUser = null;
     let selectedRole = null;
 
