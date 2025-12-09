@@ -96,7 +96,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        if: github.event_name == 'workflow_dispatch'
+        if: false
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
